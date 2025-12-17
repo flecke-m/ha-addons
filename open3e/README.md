@@ -3,6 +3,8 @@ Home Assistnat Add-on Open3e
 
 Use at your own risk. Please share Feedback to the Addon in the following thread: https://github.com/open3e/open3e/discussions/216 
 
+Note: Removed ARMHF Image as it is not supported anymore by Home Assistant base images for python.
+
 This Add-on connects to a USB Can adapter which is plugged into the Home Assistant device. It runs the Open3e https://github.com/open3e/open3e Can to Mqtt application to read and potentially write to Viessmann E3 platform devices (Heat Pump, Venting System, Solar Inverter etc.)
 
 It requires the Mosquitto MQTT broker to be installed in Home Assistant. It will use the Home Assistant build in capability to publish and subscribe to the MQTT Broker the data comming from the CAN adapter. 

@@ -45,35 +45,41 @@ jobs:
       - name: Generate release notes body
         id: notes
         if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           PREV_TAG="${{ steps.prev_tag.outputs.tag }}"
           NOTES_FILE="/tmp/release_notes.md"
 
+          # Get merged PRs since the previous tag
           if [ -z "$PREV_TAG" ]; then
-            COMMIT_LOG=$(git log --pretty=format:"- %s" | head -20)
+            SINCE_DATE="1970-01-01T00:00:00Z"
           else
-            COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s")
+            SINCE_DATE=$(git log -1 --format=%cI "${PREV_TAG}")
           fi
 
-          # Deduplicate and skip empty or merge commits
-          COMMIT_LOG=$(echo "$COMMIT_LOG" | grep -v '^- Merge ' | sort -u)
+          PR_LIST=$(gh pr list \
+            --state merged \
+            --json number,title,url,mergedAt \
+            --jq ".[] | select(.mergedAt > \"${SINCE_DATE}\") | \"- [\(.title)](\(.url))\"" \
+            | sort -u)
 
           # Extract supported architectures from config.yaml
           ARCHS=$(awk '/^arch:/{f=1;next} f && /^[^ ]/{exit} f && /^ *- /{gsub(/^ *- /,""); printf "%s`%s`", sep, $0; sep=", "}' open3e/config.yaml)
 
           MANUAL_NOTES="${{ inputs.manual_notes }}"
 
-          # Write notes to a file to avoid shell backtick / special-char interpretation
+          # Write notes to a file to avoid shell special-char interpretation
           printf '## Open3e Add-On v%s\n\n' "$VERSION" > "$NOTES_FILE"
           if [ -n "$MANUAL_NOTES" ]; then
             printf '%s\n\n' "$MANUAL_NOTES" >> "$NOTES_FILE"
           fi
           printf '### Changes\n\n' >> "$NOTES_FILE"
-          if [ -z "$COMMIT_LOG" ]; then
+          if [ -z "$PR_LIST" ]; then
             printf '- Minor updates and improvements\n' >> "$NOTES_FILE"
           else
-            printf '%s\n' "$COMMIT_LOG" >> "$NOTES_FILE"
+            printf '%s\n' "$PR_LIST" >> "$NOTES_FILE"
           fi
           printf '\n### Add-On Details\n\n| Property | Value |\n| --- | --- |\n' >> "$NOTES_FILE"
           printf '| Version | `%s` |\n' "$VERSION" >> "$NOTES_FILE"
